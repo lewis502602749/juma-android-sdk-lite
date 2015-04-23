@@ -1,0 +1,1 @@
+# juma-android-sdk-lite
