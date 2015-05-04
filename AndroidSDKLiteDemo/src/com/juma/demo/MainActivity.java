@@ -1,10 +1,11 @@
 package com.juma.demo;
 
 import java.text.SimpleDateFormat;
+import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 
-import juma.sdk.lite.Discover;
-import juma.sdk.lite.JumaSocket;
+import juma.sdk.lite.JumaDevice;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
@@ -15,219 +16,342 @@ import android.os.Bundle;
 import android.support.v4.content.LocalBroadcastManager;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.View.OnLongClickListener;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.EditText;
+import android.widget.GridView;
 import android.widget.ListView;
-import android.widget.RadioGroup;
-import android.widget.RadioGroup.OnCheckedChangeListener;
+import android.widget.TextView;
 
-public class MainActivity extends Activity {
+import com.juma.demo.CustomDialog.MessageCallback;
+import com.juma.demo.CustomDialog.ScanCallback;
+
+public class MainActivity extends Activity implements OnClickListener, OnLongClickListener{
 
 	public static final String DEVICE_NAME = "ECHO DEMO";
 
-	public static final String MSG_TYPE_HEX = "HEX";
+	public static final String ACTION_START_SCAN = "com.juma.demo.ACTION_START_SCAN";
+	public static final String ACTION_STOP_SCAN = "com.juma.demo.ACTION_STOP_SCAN";
+	public static final String ACTION_DEVICE_DISCOVERED = "com.juma.demo.ACTION_DEVICE_DISCOVERED";
+	public static final String ACTION_CONNECT = "com.juma.demo.ACTION_CONNECT";
+	public static final String ACTION_CONNECTED = "com.juma.demo.ACTION_CONNECTED";
+	public static final String ACTION_DISCONNECT = "com.juma.demo.ACTION_DISCONNECT";
+	public static final String ACTION_DISCONNECTED = "com.juma.demo.ACTION_DISCONNECTED";
+	public static final String ACTION_SEND_MESSAGE = "com.juma.demo.ACTION_SEND_MESSAGE";
+	public static final String ACTION_RECEIVER_MESSAGE = "com.juma.demo.ACTION_RECEIVER_MESSAGE";
+	public static final String ACTION_ERROR = "com.juma.demo.ACTION_ERROR";
 
-	public static final String MSG_TYPE_ASCII = "ASCII";
+	public static final String NAME_STR = "name";
 
-	private static final byte messageType = 0x01;
+	public static final String UUID_STR = "uuid";
 
-	private ListView lvMessage = null;
+	public static final String RSSI_STR = "rssi";
 
-	private RadioGroup rgInput = null;
+	public static final String MESSAGE_STR = "message";
 
-	private EditText etConnect = null, etSend = null;
-
-	private Button btnConnect = null, btnSend = null;
+	public static final String ERROR_STR = "error";
 
 	private ArrayAdapter<String> listAdapter = null;
 
-	private String inputMsgType = null;
+	private JumaDevice device = null;
+
+	private TextView tvName = null,tvUuid = null;
+
+	private View vStateLine = null;
+
+	private ListView lvMessage = null;
+
+	private GridView gvKeyboard = null;
+
+	private List<HashMap<String, Object>> deviceInfo = null;
+
+	private CustomListViewAdapter lvDevcieAdapter = null;
+
+	private CustomGridViewAdapter gvAdapter = null;
 
 	private String deviceName = null;
 
-	private JumaSocket socket = null;
-
-	private Discover discover = null;
-
 	private UUID deviceUuid = null;
-	
-	private boolean isConnected = false;
+
+	private HashMap<Integer, byte[]> messages = null;
 
 
+	@SuppressLint("UseSparseArrays")
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
 
+		messages = new HashMap<Integer, byte[]>();
+
 		initView();
 
-		setViewListener();
-
-		initMsgType();
-
-		initDiscover();
-
-		initSocket();
+		initDevice();
 
 	}
 
 	private void initView(){
 
+		tvName = (TextView) findViewById(R.id.tvName);
+		tvUuid = (TextView) findViewById(R.id.tvUuid);
+
+		vStateLine = findViewById(R.id.vStateLine);
+
 		lvMessage = (ListView) findViewById(R.id.lvMessage);
 		lvMessage.setDivider(null);
 
-		rgInput = (RadioGroup) findViewById(R.id.rgInput);		
+		gvKeyboard = (GridView) findViewById(R.id.gvKeyboard);
 
-		etConnect = (EditText) findViewById(R.id.etConnect);
-		etSend = (EditText) findViewById(R.id.etSend);
-
-		btnConnect = (Button) findViewById(R.id.btnConnect);
-		btnSend = (Button) findViewById(R.id.btnSend);
-
-		listAdapter = new ArrayAdapter<String>(this, R.layout.list_item);
+		listAdapter = new ArrayAdapter<String>(this, R.layout.message_list_item);
 		lvMessage.setAdapter(listAdapter);
-		
+
+		gvAdapter = new CustomGridViewAdapter(getApplicationContext(), this, this);
+		gvKeyboard.setAdapter(gvAdapter);
 
 	}
 
-	private void setViewListener(){
-		
-		rgInput.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+	private void initDevice(){
+		device = new JumaDevice() {
 
 			@Override
-			public void onCheckedChanged(RadioGroup radioGroup, int checkedId) {
+			public void onScanStop() {
 
-				switch (rgInput.getCheckedRadioButtonId()) {
-				case R.id.rbInputAscii:
-					inputMsgType = MSG_TYPE_ASCII;
-					break;
-				case R.id.rbInputHex:
-					inputMsgType = MSG_TYPE_HEX;
-					break;
-				}
+				Intent intent = new Intent(MainActivity.ACTION_STOP_SCAN);
+				sendBroadcast(MainActivity.this, intent);
 
 			}
-		});
-
-		btnConnect.setOnClickListener(new OnClickListener() {
 
 			@Override
-			public void onClick(View arg0) {
+			public void onMessage(byte[] message) {
 
-				if(isConnected){
-					socket.close();
-				}else {
-					
-				deviceName = etConnect.getText().toString();
-
-				if(deviceName != null && !deviceName.equals("")){
-					discover.start(MainActivity.this, deviceName);
-				}
-				
-				etConnect.setText("");
-				
-				}
-				
-				hideSoftInput(MainActivity.this);
+				Intent intent = new Intent(MainActivity.ACTION_RECEIVER_MESSAGE);
+				intent.putExtra(MainActivity.MESSAGE_STR, message);
+				sendBroadcast(MainActivity.this, intent);
 
 			}
-		});
-
-		btnSend.setOnClickListener(new OnClickListener() {
 
 			@Override
-			public void onClick(View arg0) {
+			public void onError(Exception e) {
 
-				String data = etSend.getText().toString();
-
-				if(inputMsgType.equals(MSG_TYPE_HEX)){
-					try {
-						socket.send(messageType, hexToByte(data));
-					} catch (Exception e) {
-						return;
-					}
-				}else if(inputMsgType.equals(MSG_TYPE_ASCII)){
-					try {
-						socket.send(messageType, data.getBytes());
-					} catch (Exception e) {
-						return;
-					}
-				}
-
-				etSend.setText("");
-				
-				hideSoftInput(MainActivity.this);
+				Intent intent = new Intent(MainActivity.ACTION_ERROR);
+				intent.putExtra(MainActivity.ERROR_STR, e.toString());
+				sendBroadcast(MainActivity.this, intent);
 
 			}
-		});
-		
+
+			@Override
+			public void onDiscover(UUID uuid, String name, int rssi) {
+
+				Intent intent = new Intent(MainActivity.ACTION_DEVICE_DISCOVERED);
+				intent.putExtra(MainActivity.NAME_STR, name);
+				intent.putExtra(MainActivity.UUID_STR, uuid.toString());
+				intent.putExtra(MainActivity.RSSI_STR, rssi);
+				sendBroadcast(MainActivity.this, intent);
+
+			}
+
+			@Override
+			public void onDisconnect(UUID uuid, String name) {
+
+				Intent intent = new Intent(MainActivity.ACTION_DISCONNECTED);
+				intent.putExtra(MainActivity.NAME_STR, name);
+				intent.putExtra(MainActivity.UUID_STR, uuid.toString());
+				sendBroadcast(MainActivity.this, intent);
+
+			}
+
+			@Override
+			public void onConnect(UUID uuid, String name) {
+
+				Intent intent = new Intent(MainActivity.ACTION_CONNECTED);
+				intent.putExtra(MainActivity.NAME_STR, name);
+				intent.putExtra(MainActivity.UUID_STR, uuid.toString());
+				sendBroadcast(MainActivity.this, intent);
+
+			}
+		};
+
+		device.init(getApplicationContext());
+
 	}
-	
 
-	private void initMsgType(){
+	private void addDeviceInfo(String name, String uuid, int rssi){
 
-		switch (rgInput.getCheckedRadioButtonId()) {
-		case R.id.rbInputAscii:
-			inputMsgType = MSG_TYPE_ASCII;
-			break;
-		case R.id.rbInputHex:
-			inputMsgType = MSG_TYPE_HEX;
-			break;
+		if(deviceInfo != null && lvDevcieAdapter != null){
+			HashMap<String , Object> map = new HashMap<String, Object>();
+			map.put(NAME_STR, name);
+			map.put(UUID_STR, uuid);
+			map.put(RSSI_STR, rssi);
+
+			deviceInfo.add(map);
+
+			lvDevcieAdapter.notifyDataSetChanged();
+
 		}
 
 	}
 
-	private void initDiscover(){
-		discover = new Discover() {
+	@Override
+	public void onClick(View v) {
+		switch (v.getId()) {
+		case R.string.key_1:
+			sendMessage(messages.get(v.getId()));
+			break;
+		case R.string.key_2:
+			sendMessage(messages.get(v.getId()));
+			break;
+		case R.string.key_3:
+			sendMessage(messages.get(v.getId()));
+			break;
+		case R.string.key_4:
+			sendMessage(messages.get(v.getId()));
+			break;
+		case R.string.key_5:
+			sendMessage(messages.get(v.getId()));
+			break;
+		case R.string.key_6:
+			sendMessage(messages.get(v.getId()));
+			break;
+		case R.string.key_7:
+			sendMessage(messages.get(v.getId()));
+			break;
+		case R.string.key_8:
+			sendMessage(messages.get(v.getId()));
+			break;
+		case R.string.key_9:
+			sendMessage(messages.get(v.getId()));
+			break;
+		case R.string.scan:
 
-			@Override
-			public void onError(Exception exception) {
-				// TODO Auto-generated method stub
+			CustomDialog scanDialog = new CustomDialog(MainActivity.this, CustomDialog.DIALOG_TYPE_SCAN);
+			scanDialog.setScanCallback(new ScanCallback() {
 
+				@Override
+				public void onName(String name) {
+
+					device.scan(name);
+
+				}
+
+				@Override
+				public void onDevice(final UUID uuid, final String name) {
+
+					deviceUuid = uuid;
+					deviceName = name;
+
+					runOnUiThread(new Runnable() {
+
+						@Override
+						public void run() {
+							tvName.setText(name);
+							tvUuid.setText(uuid.toString());	
+						}
+					});
+
+				}
+			});
+
+			scanDialog.show();
+
+			break;
+		case R.string.connect:
+
+			if(gvAdapter.getItem(R.string.connect).getText().equals(MainActivity.this.getResources().getString(R.string.disconnect))){
+				device.disconnect(deviceUuid);
+			}else{
+				if(deviceUuid != null){
+					device.connect(deviceUuid);
+
+					Intent intent = new Intent(ACTION_CONNECT);
+					intent.putExtra(MainActivity.NAME_STR, deviceName);
+					intent.putExtra(MainActivity.UUID_STR, deviceUuid.toString());
+					sendBroadcast(MainActivity.this, intent);
+
+				}
 			}
 
-			@Override
-			public void onEnd() {
-				// TODO Auto-generated method stub
-				if(deviceUuid != null)
-					socket.connect(getApplicationContext(), deviceUuid);
+			break;
+		case R.string.send:
 
-			}
+			CustomDialog sendDialog = new CustomDialog(MainActivity.this, CustomDialog.DIALOG_TYPE_SEND_MESSAGE);
+			sendDialog.setMessageCallback(new MessageCallback() {
 
-			@Override
-			public void onDiscovered(UUID uuid, String name, int rssi) {
+				@Override
+				public void onMessage(byte[] message, int id) {
+					
+					if(message.length > 0)
+						sendMessage(message);
 
-				deviceUuid = uuid;
+				}
+			});
 
-			}
-		};
+			sendDialog.show();
+
+			break;
+		}
 	}
 
-	private void initSocket(){
-		socket = new JumaSocket() {
+	@Override
+	public boolean onLongClick(View v) {
+		switch (v.getId()) {
+		case R.string.key_1:
+			editMessage(v.getId());
+			break;
+		case R.string.key_2:
+			editMessage(v.getId());
+			break;
+		case R.string.key_3:
+			editMessage(v.getId());
+			break;
+		case R.string.key_4:
+			editMessage(v.getId());
+			break;
+		case R.string.key_5:
+			editMessage(v.getId());
+			break;
+		case R.string.key_6:
+			editMessage(v.getId());
+			break;
+		case R.string.key_7:
+			editMessage(v.getId());
+			break;
+		case R.string.key_8:
+			editMessage(v.getId());
+			break;
+		case R.string.key_9:
+			editMessage(v.getId());
+			break;
+		}
+		return true;
+	}
+
+	private void editMessage(int id){
+		CustomDialog editDialog = new CustomDialog(MainActivity.this, CustomDialog.DIALOG_TYPE_EDIT_MESSAGE);
+
+		editDialog.setId(id);
+
+		editDialog.setMessageCallback(new MessageCallback() {
 
 			@Override
-			public void onOpen() {
-				// TODO Auto-generated method stub
+			public void onMessage(final byte[] message, final int id) {
+				
+				messages.put(id, message);
+				
 			}
+		});
 
-			@Override
-			public void onMessage(byte messageType, byte[] messageData) {
-				// TODO Auto-generated method stub
-			}
+		editDialog.show();
 
-			@Override
-			public void onError(Exception exception) {
-				// TODO Auto-generated method stub
-			}
+	}
 
-			@Override
-			public void onClose(int arg0, String arg1, boolean arg2) {
-				// TODO Auto-generated method stub
-			}
-		};
+	private void sendMessage(byte[] message){
+		if(message != null){
+			device.send(message);
+
+			Intent intent = new Intent(MainActivity.ACTION_SEND_MESSAGE);
+			intent.putExtra(MainActivity.MESSAGE_STR, message);
+			sendBroadcast(MainActivity.this, intent);
+		}
 	}
 
 	public static void hideSoftInput(Activity activity){
@@ -260,95 +384,41 @@ public class MainActivity extends Activity {
 
 			String action = intent.getAction();
 
-			if(action.equals(Discover.ACTION_DISCOVER_START)){
+			if(action.equals(ACTION_DEVICE_DISCOVERED)){
 				runOnUiThread(new Runnable() {
 
 					@Override
 					public void run() {
 
-						String currentDate = getCurrentData(context);
+						String uuid = intent.getStringExtra(MainActivity.UUID_STR);
+						String name = intent.getStringExtra(MainActivity.NAME_STR);
+						int rssi = intent.getIntExtra(MainActivity.RSSI_STR, 0);
 
-						StringBuffer sb = new StringBuffer();
-						sb.append("[");
-						sb.append(currentDate);
-						sb.append("] : discover start");
-
-						listAdapter.add(sb.toString());
-						lvMessage.smoothScrollByOffset(listAdapter.getCount() - 1);
+						addDeviceInfo(name, uuid, rssi);
 
 					}
 				});
 			}
-
-			if(action.equals(Discover.ACTION_DISCOVER_END)){
+			if(action.equals(ACTION_CONNECT)){
 				runOnUiThread(new Runnable() {
 
 					@Override
 					public void run() {
 
+
+						//						isConnected = true;
+						//
+						//						btnConnect.setText("Disconnect");
+
 						String currentDate = getCurrentData(context);
+
+						String uuid = intent.getStringExtra(MainActivity.UUID_STR);
+						String name = intent.getStringExtra(MainActivity.NAME_STR);
 
 						StringBuffer sb = new StringBuffer();
 						sb.append("[");
 						sb.append(currentDate);
-						sb.append("] : discover end");
-
-						listAdapter.add(sb.toString());
-						lvMessage.smoothScrollByOffset(listAdapter.getCount() - 1);
-
-					}
-				});
-			}
-
-			if(action.equals(Discover.ACTION_DEVICE_DISCOVERED)){
-				runOnUiThread(new Runnable() {
-
-					@Override
-					public void run() {
-
-						String currentDate = getCurrentData(context);
-
-						String uuid = intent.getStringExtra(Discover.UUID_STR);
-						String name = intent.getStringExtra(Discover.NAME_STR);
-						int rssi = intent.getIntExtra(Discover.RSSI_STR, 0);
-
-						StringBuffer sb = new StringBuffer();
-						sb.append("[");
-						sb.append(currentDate);
-						sb.append("] : device discovered ");
-						sb.append("\nname : ");
-						sb.append(name);
-						sb.append("\nuuid : ");
-						sb.append(uuid);
-						sb.append("\nrssi : ");
-						sb.append(rssi);
-
-						listAdapter.add(sb.toString());
-						lvMessage.smoothScrollByOffset(listAdapter.getCount() - 1);
-
-					}
-				});
-			}
-
-			if(action.equals(JumaSocket.ACTION_DEVICE_CONNECTED)){
-				runOnUiThread(new Runnable() {
-
-					@Override
-					public void run() {
-						
-						isConnected = true;
-						
-						btnConnect.setText("Disconnect");
-
-						String currentDate = getCurrentData(context);
-
-						String uuid = intent.getStringExtra(JumaSocket.UUID_STR);
-						String name = intent.getStringExtra(JumaSocket.NAME_STR);
-
-						StringBuffer sb = new StringBuffer();
-						sb.append("[");
-						sb.append(currentDate);
-						sb.append("] : device connected : ");
+						sb.append("] : Connect device : ");
 						sb.append("\nname : ");
 						sb.append(name);
 						sb.append("\nuuid : ");
@@ -360,26 +430,27 @@ public class MainActivity extends Activity {
 					}
 				});
 			}
-
-			if(action.equals(JumaSocket.ACTION_DEVICE_DISCONNECTED)){
+			if(action.equals(ACTION_CONNECTED)){
 				runOnUiThread(new Runnable() {
 
 					@Override
 					public void run() {
 
-						isConnected = false;
-						
-						btnConnect.setText("Connect");
-						
+						vStateLine.setBackgroundColor(context.getResources().getColor(R.color.green));
+
+						gvAdapter.getItem(R.string.scan).setEnabled(false);
+						gvAdapter.getItem(R.string.connect).setText(MainActivity.this.getResources().getString(R.string.disconnect));
+						gvAdapter.notifyDataSetChanged();
+
 						String currentDate = getCurrentData(context);
 
-						String uuid = intent.getStringExtra(JumaSocket.UUID_STR);
-						String name = intent.getStringExtra(JumaSocket.NAME_STR);
+						String uuid = intent.getStringExtra(MainActivity.UUID_STR);
+						String name = intent.getStringExtra(MainActivity.NAME_STR);
 
 						StringBuffer sb = new StringBuffer();
 						sb.append("[");
 						sb.append(currentDate);
-						sb.append("] : device disconnected : ");
+						sb.append("] : Device connected : ");
 						sb.append("\nname : ");
 						sb.append(name);
 						sb.append("\nuuid : ");
@@ -391,8 +462,7 @@ public class MainActivity extends Activity {
 					}
 				});
 			}
-
-			if(action.equals(JumaSocket.ACTION_SERVICE_DISCOVERED)){
+			if(action.equals(ACTION_DISCONNECT)){
 				runOnUiThread(new Runnable() {
 
 					@Override
@@ -400,10 +470,17 @@ public class MainActivity extends Activity {
 
 						String currentDate = getCurrentData(context);
 
+						String uuid = intent.getStringExtra(MainActivity.UUID_STR);
+						String name = intent.getStringExtra(MainActivity.NAME_STR);
+
 						StringBuffer sb = new StringBuffer();
 						sb.append("[");
 						sb.append(currentDate);
-						sb.append("] : service discovered ");
+						sb.append("] : Disconnect device : ");
+						sb.append("\nname : ");
+						sb.append(name);
+						sb.append("\nuuid : ");
+						sb.append(uuid);
 
 						listAdapter.add(sb.toString());
 						lvMessage.smoothScrollByOffset(listAdapter.getCount() - 1);
@@ -411,8 +488,38 @@ public class MainActivity extends Activity {
 					}
 				});
 			}
+			if(action.equals(ACTION_DISCONNECTED)){
+				runOnUiThread(new Runnable() {
 
-			if(action.equals(JumaSocket.ACTION_SEND_MESSAGE)){
+					@Override
+					public void run() {
+
+						vStateLine.setBackgroundColor(context.getResources().getColor(R.color.red));
+
+						gvAdapter.getItem(R.string.scan).setEnabled(true);
+						gvAdapter.getItem(R.string.connect).setText(MainActivity.this.getResources().getString(R.string.connect));
+
+						String currentDate = getCurrentData(context);
+
+						String uuid = intent.getStringExtra(MainActivity.UUID_STR);
+						String name = intent.getStringExtra(MainActivity.NAME_STR);
+
+						StringBuffer sb = new StringBuffer();
+						sb.append("[");
+						sb.append(currentDate);
+						sb.append("] : Device disconnected : ");
+						sb.append("\nname : ");
+						sb.append(name);
+						sb.append("\nuuid : ");
+						sb.append(uuid);
+
+						listAdapter.add(sb.toString());
+						lvMessage.smoothScrollByOffset(listAdapter.getCount() - 1);
+
+					}
+				});
+			}
+			if(action.equals(ACTION_SEND_MESSAGE)){
 				runOnUiThread(new Runnable() {
 
 					@Override
@@ -420,16 +527,13 @@ public class MainActivity extends Activity {
 
 						String currentDate = getCurrentData(context);
 
-						byte[] message = intent.getByteArrayExtra(JumaSocket.MESSAGE_STR);
+						byte[] message = intent.getByteArrayExtra(MainActivity.MESSAGE_STR);
 
 						StringBuffer sb = new StringBuffer();
 						sb.append("[");
 						sb.append(currentDate);
-						sb.append("] : send message : ");	
-						if(inputMsgType.equals(MSG_TYPE_HEX))
-							sb.append(byteToHex(message));
-						else if(inputMsgType.equals(MSG_TYPE_ASCII))
-							sb.append(byteToAscii(message));
+						sb.append("] : Send message : ");	
+						sb.append(byteToHex(message));
 
 						listAdapter.add(sb.toString());
 						lvMessage.smoothScrollByOffset(listAdapter.getCount() - 1);
@@ -437,8 +541,30 @@ public class MainActivity extends Activity {
 					}
 				});
 			}
+			if(action.equals(ACTION_RECEIVER_MESSAGE)){
+				runOnUiThread(new Runnable() {
 
-			if(action.equals(JumaSocket.ACTION_RECEIVE_MESSAGE)){
+					@Override
+					public void run() {
+
+
+						String currentDate = getCurrentData(context);
+
+						byte[] message = intent.getByteArrayExtra(MainActivity.MESSAGE_STR);
+
+						StringBuffer sb = new StringBuffer();
+						sb.append("[");
+						sb.append(currentDate);
+						sb.append("] : Receiver message : ");	
+						sb.append(byteToHex(message));
+
+						listAdapter.add(sb.toString());
+						lvMessage.smoothScrollByOffset(listAdapter.getCount() - 1);
+
+					}
+				});
+			}
+			if(action.equals(ACTION_ERROR)){
 				runOnUiThread(new Runnable() {
 
 					@Override
@@ -446,48 +572,39 @@ public class MainActivity extends Activity {
 
 						String currentDate = getCurrentData(context);
 
-						byte[] message = intent.getByteArrayExtra(JumaSocket.MESSAGE_STR);
+						String errorMessage = intent.getStringExtra(MainActivity.ERROR_STR);
 
 						StringBuffer sb = new StringBuffer();
 						sb.append("[");
 						sb.append(currentDate);
-						sb.append("] : receive message : ");	
-						if(inputMsgType.equals(MSG_TYPE_HEX)){
-							try {
-								sb.append(byteToHex(message));
-							} catch (Exception e) {
-								return;
-							}
-						}else if(inputMsgType.equals(MSG_TYPE_ASCII)){
-							try {
-								sb.append(byteToAscii(message));
-							} catch (Exception e) {
-								return;
-							}
-						}
+						sb.append("] : Error : ");
+						sb.append(errorMessage);
 
 						listAdapter.add(sb.toString());
 						lvMessage.smoothScrollByOffset(listAdapter.getCount() - 1);
-
 					}
 				});
 			}
-
-
 		}
 	};
 
 	private IntentFilter getIntentFilter(){
 		IntentFilter filter = new IntentFilter();
-		filter.addAction(Discover.ACTION_DISCOVER_START);
-		filter.addAction(Discover.ACTION_DISCOVER_END);
-		filter.addAction(Discover.ACTION_DEVICE_DISCOVERED);
-		filter.addAction(JumaSocket.ACTION_DEVICE_CONNECTED);
-		filter.addAction(JumaSocket.ACTION_DEVICE_DISCONNECTED);
-		filter.addAction(JumaSocket.ACTION_SERVICE_DISCOVERED);
-		filter.addAction(JumaSocket.ACTION_SEND_MESSAGE);
-		filter.addAction(JumaSocket.ACTION_RECEIVE_MESSAGE);
+		filter.addAction(MainActivity.ACTION_START_SCAN);
+		filter.addAction(MainActivity.ACTION_STOP_SCAN);
+		filter.addAction(MainActivity.ACTION_DEVICE_DISCOVERED);
+		filter.addAction(MainActivity.ACTION_CONNECT);
+		filter.addAction(MainActivity.ACTION_CONNECTED);
+		filter.addAction(MainActivity.ACTION_DISCONNECT);
+		filter.addAction(MainActivity.ACTION_DISCONNECTED);
+		filter.addAction(MainActivity.ACTION_SEND_MESSAGE);
+		filter.addAction(MainActivity.ACTION_RECEIVER_MESSAGE);
+		filter.addAction(MainActivity.ACTION_ERROR);
 		return filter;
+	}
+
+	private void sendBroadcast(Context context, Intent intent){
+		LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
 	}
 
 	@SuppressLint("SimpleDateFormat")
@@ -510,8 +627,7 @@ public class MainActivity extends Activity {
 	}
 
 	@SuppressLint("UseValueOf")
-	public static final byte[] hexToByte(String hex)
-			throws IllegalArgumentException {
+	public static final byte[] hexToByte(String hex)throws IllegalArgumentException {
 		if (hex.length() % 2 != 0) {
 			throw new IllegalArgumentException();
 		}
@@ -521,28 +637,6 @@ public class MainActivity extends Activity {
 			String swap = "" + arr[i++] + arr[i];
 			int byteint = Integer.parseInt(swap, 16) & 0xFF;
 			b[j] = new Integer(byteint).byteValue();
-		}
-		return b;
-	}
-
-	public static String byteToAscii(byte[] bytearray) {
-		String result = "";
-		char temp;
-
-		int length = bytearray.length;
-		for (int i = 0; i < length; i++) {
-			temp = (char) bytearray[i];
-			result += temp;
-		}
-		return result;
-	}
-
-	public static byte[]  asciiToByte(String ascIIString)
-	{
-		int asc = Integer.parseInt(ascIIString);
-		byte[] b = new byte[ascIIString.length()];
-		for (int i = 0; i < b.length; i++) {
-			b[i] = (byte) (asc >> i*8);
 		}
 		return b;
 	}
