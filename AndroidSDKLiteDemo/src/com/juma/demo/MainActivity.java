@@ -75,6 +75,9 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 
 	private HashMap<Integer, byte[]> messages = null;
 
+	private int[] keyIds = {R.string.key_1,R.string.key_2, R.string.key_3, R.string.key_4, R.string.key_5, R.string.key_6, 
+			R.string.key_7, R.string.key_8, R.string.key_9, R.string.scan, R.string.connect, R.string.send};
+
 
 	@SuppressLint("UseSparseArrays")
 	@Override
@@ -105,7 +108,7 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 		listAdapter = new ArrayAdapter<String>(this, R.layout.message_list_item);
 		lvMessage.setAdapter(listAdapter);
 
-		gvAdapter = new CustomGridViewAdapter(getApplicationContext(), this, this);
+		gvAdapter = new CustomGridViewAdapter(getApplicationContext(), keyIds, this, this);
 		gvKeyboard.setAdapter(gvAdapter);
 
 	}
@@ -134,7 +137,7 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 			public void onError(Exception e) {
 
 				Intent intent = new Intent(MainActivity.ACTION_ERROR);
-				intent.putExtra(MainActivity.ERROR_STR, e.toString());
+				intent.putExtra(MainActivity.ERROR_STR, e.getMessage());
 				sendBroadcast(MainActivity.this, intent);
 
 			}
@@ -278,7 +281,7 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 
 				@Override
 				public void onMessage(byte[] message, int id) {
-					
+
 					if(message.length > 0)
 						sendMessage(message);
 
@@ -334,9 +337,9 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 
 			@Override
 			public void onMessage(final byte[] message, final int id) {
-				
+
 				messages.put(id, message);
-				
+
 			}
 		});
 
@@ -359,6 +362,8 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 				.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
 	}
 
+	boolean isFrist = true;
+
 	@Override
 	protected void onStart() {
 
@@ -369,12 +374,10 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 	}
 
 	@Override
-	protected void onDestroy() {
-
-		super.onDestroy();
-
+	protected void onStop() {
+		// TODO Auto-generated method stub
+		super.onStop();
 		LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver);
-
 	}
 
 	private final BroadcastReceiver receiver = new BroadcastReceiver() {
@@ -405,11 +408,6 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 					@Override
 					public void run() {
 
-
-						//						isConnected = true;
-						//
-						//						btnConnect.setText("Disconnect");
-
 						String currentDate = getCurrentData(context);
 
 						String uuid = intent.getStringExtra(MainActivity.UUID_STR);
@@ -439,7 +437,7 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 						vStateLine.setBackgroundColor(context.getResources().getColor(R.color.green));
 
 						gvAdapter.getItem(R.string.scan).setEnabled(false);
-						gvAdapter.getItem(R.string.connect).setText(MainActivity.this.getResources().getString(R.string.disconnect));
+						keyIds[10] = R.string.disconnect;
 						gvAdapter.notifyDataSetChanged();
 
 						String currentDate = getCurrentData(context);
@@ -497,7 +495,8 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 						vStateLine.setBackgroundColor(context.getResources().getColor(R.color.red));
 
 						gvAdapter.getItem(R.string.scan).setEnabled(true);
-						gvAdapter.getItem(R.string.connect).setText(MainActivity.this.getResources().getString(R.string.connect));
+						keyIds[10] = R.string.connect;
+						gvAdapter.notifyDataSetChanged();
 
 						String currentDate = getCurrentData(context);
 

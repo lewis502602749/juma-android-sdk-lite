@@ -19,14 +19,15 @@ public class CustomGridViewAdapter extends BaseAdapter{
 	
 	private  OnLongClickListener longClickListener = null;
 
-	private int[] keyId = {R.string.key_1,R.string.key_2, R.string.key_3, R.string.key_4, R.string.key_5, R.string.key_6, 
-			R.string.key_7, R.string.key_8, R.string.key_9, R.string.scan, R.string.connect, R.string.send};
+	private int[] keyIds = null;
 
 	private HashMap<Integer, Button> keys = null;
 	
-	public CustomGridViewAdapter(Context context, OnClickListener clickListener, OnLongClickListener longClickListener) {
+	public CustomGridViewAdapter(Context context, int[] keyIds, OnClickListener clickListener, OnLongClickListener longClickListener) {
 
 		this.context = context;
+		
+		this.keyIds = keyIds;
 		
 		this.clickListener = clickListener;
 		
@@ -38,7 +39,7 @@ public class CustomGridViewAdapter extends BaseAdapter{
 
 	@Override
 	public int getCount() {
-		return keyId.length;
+		return keyIds.length;
 	}
 
 	@Override
@@ -62,14 +63,14 @@ public class CustomGridViewAdapter extends BaseAdapter{
 			btnKey.setTextSize(18);
 			btnKey.setOnClickListener(clickListener);
 			btnKey.setOnLongClickListener(longClickListener);
-			btnKey.setId(keyId[position]);
+			btnKey.setId(keyIds[position]);
 			btnKey.setBackgroundResource(R.drawable.button_background);
-			keys.put(keyId[position], btnKey);
+			keys.put(keyIds[position], btnKey);
 		}else {
 			btnKey = (Button) convertView;
 		}
 
-		btnKey.setText(keyId[position]);
+		btnKey.setText(keyIds[position]);
 
 		return btnKey;
 	}
