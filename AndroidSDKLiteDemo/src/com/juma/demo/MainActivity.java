@@ -349,11 +349,12 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 
 	private void sendMessage(byte[] message){
 		if(message != null){
-			device.send(message);
 
 			Intent intent = new Intent(MainActivity.ACTION_SEND_MESSAGE);
 			intent.putExtra(MainActivity.MESSAGE_STR, message);
 			sendBroadcast(MainActivity.this, intent);
+			
+			device.send(message);
 		}
 	}
 
