@@ -226,7 +226,7 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 			break;
 		case R.string.scan:
 
-			CustomDialog scanDialog = new CustomDialog(MainActivity.this, CustomDialog.DIALOG_TYPE_SCAN);
+			final CustomDialog scanDialog = new CustomDialog(MainActivity.this, CustomDialog.DIALOG_TYPE_SCAN);
 			scanDialog.setScanCallback(new ScanCallback() {
 
 				@Override
@@ -239,6 +239,8 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 				@Override
 				public void onDevice(final UUID uuid, final String name) {
 
+					device.stopScan();
+					
 					deviceUuid = uuid;
 					deviceName = name;
 
@@ -251,6 +253,18 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 						}
 					});
 
+				}
+			});
+			
+			scanDialog.setNegativeButton(new OnClickListener() {
+				
+				@Override
+				public void onClick(View arg0) {
+					
+					scanDialog.dismiss();
+					
+					device.stopScan();
+					
 				}
 			});
 

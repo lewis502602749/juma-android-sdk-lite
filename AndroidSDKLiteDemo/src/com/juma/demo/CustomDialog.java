@@ -45,6 +45,10 @@ public class CustomDialog extends Dialog implements android.view.View.OnClickLis
 
 	private List<HashMap<String, Object>> deviceInfo = null;
 
+	private android.view.View.OnClickListener positiveButtonClickListener = null;
+
+	private android.view.View.OnClickListener negativeButtonClickListener = null;
+
 	private int id = -1;
 
 
@@ -107,9 +111,15 @@ public class CustomDialog extends Dialog implements android.view.View.OnClickLis
 			negativeButton = (Button) findViewById(R.id.btnCancel);
 		}
 
-		positiveButton.setOnClickListener(this);
+		if(positiveButtonClickListener != null)
+			positiveButton.setOnClickListener(positiveButtonClickListener);
+		else
+			positiveButton.setOnClickListener(this);
 
-		negativeButton.setOnClickListener(this);
+		if(negativeButtonClickListener != null)
+			negativeButton.setOnClickListener(negativeButtonClickListener);
+		else
+			negativeButton.setOnClickListener(this);
 
 	}
 
@@ -152,13 +162,13 @@ public class CustomDialog extends Dialog implements android.view.View.OnClickLis
 
 	public void setPositiveButton(android.view.View.OnClickListener listener){
 
-		positiveButton.setOnClickListener(listener);
+		positiveButtonClickListener = listener;
 
 	}
 
 	public void setNegativeButton(android.view.View.OnClickListener listener){
 
-		negativeButton.setOnClickListener(listener);
+		negativeButtonClickListener = listener;
 
 	}
 
@@ -191,7 +201,7 @@ public class CustomDialog extends Dialog implements android.view.View.OnClickLis
 
 				if(hexStr.length() > 0)
 					messageCallback.onMessage(hexToByte(hexStr), id);
-				
+
 			}
 
 			dismiss();
