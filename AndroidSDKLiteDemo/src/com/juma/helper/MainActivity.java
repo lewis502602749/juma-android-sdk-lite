@@ -39,41 +39,24 @@ public class MainActivity extends Activity implements OnClickListener, OnLongCli
 	public static final String ACTION_ERROR = "com.juma.helper.ACTION_ERROR";
 
 	public static final String NAME_STR = "name";
-
 	public static final String UUID_STR = "uuid";
-
 	public static final String RSSI_STR = "rssi";
-
 	public static final String MESSAGE_STR = "message";
-
 	public static final String ERROR_STR = "error";
-
 	public static final String STATUS_STR = "status";
-
 	public static final String ERROR_CODE_STR = "errorCode";
-
 	public static final String TYPE_STR = "type";
 
 	private ArrayAdapter<String> listAdapter = null;
-
 	private JumaDevice device = null;
-
 	private TextView tvName = null,tvUuid = null;
-
 	private View vStateLine = null;
-
 	private ListView lvMessage = null;
-
 	private GridView gvKeyboard = null;
-
 	private CustomGridViewAdapter gvAdapter = null;
-
 	private String deviceName = null;
-
 	private UUID deviceUuid = null;
-
 	private HashMap<Integer, byte[]> messages = null;
-
 	private int[] keyIds = {R.string.key_1,R.string.key_2, R.string.key_3, R.string.key_4, R.string.key_5, R.string.key_6, 
 			R.string.key_7, R.string.key_8, R.string.key_9, R.string.scan, R.string.connect, R.string.send};
 
